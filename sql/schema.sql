@@ -2,7 +2,8 @@
 
 create table if not exists test_runs (
   id           bigserial primary key,
-  run_id       text not null,
+  run_id       text not null unique,   -- FK target for test_results, and what
+                                       -- report_to_db.py's ON CONFLICT relies on
   suite        text not null,
   markers      text,
   base_url     text,
@@ -15,6 +16,13 @@ create table if not exists test_runs (
                  case when (passed + failed) = 0 then null
                  else round(passed::numeric / (passed + failed), 4) end) stored
 );
+
+-- Backfill the constraint for a database created before run_id was unique.
+-- `create table if not exists` above will not alter an existing table.
+do $$ begin
+  alter table test_runs add constraint test_runs_run_id_key unique (run_id);
+exception when duplicate_table or duplicate_object then null;
+end $$;
 
 create table if not exists test_results (
   id        bigserial primary key,
